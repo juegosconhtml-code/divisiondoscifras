@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>División Interactiva Paso a Paso</title>
+    <style>
+        :root { --azul: #3498db; --verde: #27ae60; --gris: #dcdcdc; --rojo: #e74c3c; }
+        body { font-family: 'Arial', sans-serif; background: #f0f2f5; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        
+        /* NUEVO: Contenedor global para poner las imágenes a los lados sin romper la caja central */
+        .layout-global { display: flex; align-items: center; justify-content: center; gap: 30px; width: 100%; max-width: 1200px; }
+        .img-cientifico { width: 150px; height: auto; object-fit: contain; }
+        
+        /* Si la pantalla es pequeña, ocultamos los científicos para no aplastar la división */
+        @media (max-width: 950px) {
+            .img-cientifico { display: none; }
+        }
+
+        .contenedor-principal { display: flex; gap: 40px; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+
+        /* Estilos de la Cuadrícula */
+        .cuadricula { display: flex; gap: 2px; margin-bottom: 20px; justify-content: flex-end; }
+        
+        .celda { position: relative; width: 32px; height: 38px; border: 1px solid var(--gris); display: flex; align-items: center; justify-content: center; background: white; border-radius: 2px; }
+        .celda.fija { background: #eee; font-weight: bold; border-color: transparent; }
+        .celda input { width: 100%; border: none; text-align: center; font-size: 1.1rem; font-weight: bold; outline: none; background: transparent; }
+        
+        /* Colores de validación */
+        .celda.correct { border: 2px solid var(--verde); background: #e8f5e9; }
+        .celda.error { border: 2px solid var(--rojo); background: #fdeaea; }
+        .celda.added-zero { border: 2px solid var(--azul); background: #e3f2fd; }
+
+        /* Estilos para las llevadas */
+        .llevada { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); color: #8e44ad; font-size: 0.9rem; font-weight: 900; z-index: 10; pointer-events: none; }
+        .celda.tachado::before { content: ''; position: absolute; top: 18px; left: 4px; right: 4px; height: 2px; background-color: #8e44ad; transform: rotate(-45deg); z-index: 5; pointer-events: none; }
+
+        /* Columna Izquierda: Tabla */
+        .seccion-tabla { width: 280px; border-right: 2px solid #f0f0f0; padding-right: 20px; }
+        .fila-tabla { display: flex; align-items: center; margin-bottom: 8px; font-size: 0.9rem; }
+        .label-t { width: 90px; font-weight: bold; }
+        .btn-activar { margin-top: 15px; padding: 10px; background: var(--verde); color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; transition: opacity 0.3s; }
+
+        /* Columna Derecha: División */
+        .seccion-division { min-width: 400px; }
+        .layout-division { display: flex; gap: 15px; }
+        .bloque-restas { display: flex; flex-direction: column; align-items: flex-end; }
+        .bloque-cocientes { border-left: 3px solid #333; padding-left: 15px; }
+        .divisor-linea { border-bottom: 3px solid #333; padding-bottom: 5px; margin-bottom: 10px; }
+        
+        .signo-resta { color: var(--rojo); font-weight: bold; margin-right: 5px; align-self: center;}
+        .fila-con-signo { display: flex; align-items: center; }
+        
+        .oculto { display: none; }
+        h3 { color: var(--azul); margin-top: 0; }
+        #fila-dividendo { margin-top: 15px; } 
+    </style>
+</head>
+<body>
+
+    <h1>Juego de División: Método de las Restas</h1>
+
+    <div class="layout-global">
+        
+        <img src="einstein.png" alt="Albert Einstein" class="img-cientifico">
+
+        <div class="contenedor-principal">
+            <div class="seccion-tabla">
+                <h3>1. Tabla de ayuda</h3>
+                <div id="tabla-inputs"></div>
+                <p style="font-size: 0.8rem; color: #666;">Completa x1, x2, luego x10 y por último x5.</p>
+                <button class="btn-activar" id="btn-tabla" onclick="validarTabla()">Comprobar Tabla</button>
+            </div>
+
+            <div class="seccion-division">
+                <h3>2. Resuelve la división</h3>
+                <div class="layout-division">
+                    
+                    <div class="bloque-restas" id="area-restas">
+                        </div>
+
+                    <div class="bloque-cocientes">
+                        <div class="divisor-linea">
+                            <div class="cuadricula" id="fila-divisor"></div>
+                        </div>
+                        <div id="cocientes-lista">
+                            </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <img src="newton.png" alt="Isaac Newton" class="img-cientifico">
+
+    </div>
+
+    <script>
+        let DIVIDENDO, DIVISOR, RESULTADOS_TABLA;
+        let dividendoActual, maxCifrasDividendo, maxCifrasCociente;
+
+        function iniciarJuego() {
+            DIVIDENDO = Math.floor(Math.random() * (99999 - 1000 + 1)) + 1000;
+            DIVISOR = Math.floor(Math.random() * (99 - 10 + 1)) + 10;
+            
+            RESULTADOS_TABLA = { 1: DIVISOR*1, 2: DIVISOR*2, 5: DIVISOR*5, 10: DIVISOR*10 };
+            
+            dividendoActual = DIVIDENDO;
+            maxCifrasDividendo = DIVIDENDO.toString().length;
+            maxCifrasCociente = Math.floor(DIVIDENDO / DIVISOR).toString().length;
+
+            document.getElementById('tabla-inputs').innerHTML = '';
+            document.getElementById('btn-tabla').disabled = false;
+            document.getElementById('btn-tabla').style.opacity = "1";
+            
+            document.getElementById('area-restas').innerHTML = `
+                <div class="cuadricula" id="fila-dividendo"></div>
+                <div id="paso-1" class="oculto">
+                    <div class="fila-con-signo">
+                        <span class="signo-resta">-</span>
+                        <div class="cuadricula" id="resta-1"></div>
+                    </div>
+                    <div style="border-top: 2px solid #333; margin: 5px 0 22px 0; width: 100%;"></div>
+                    <div class="cuadricula" id="resultado-1"></div>
+                </div>
+            `;
+            
+            document.getElementById('fila-divisor').innerHTML = '';
+            document.getElementById('cocientes-lista').innerHTML = '';
+
+            dibujarTabla();
+            dibujarCeldasFijas('fila-dividendo', DIVIDENDO, maxCifrasDividendo);
+            dibujarCeldasFijas('fila-divisor', DIVISOR, DIVISOR.toString().length);
+        }
+
+        // --- LÓGICA DE LA TABLA ---
+        function dibujarTabla() {
+            const cont = document.getElementById('tabla-inputs');
+            [1, 2, 5, 10].forEach(f => {
+                const fila = document.createElement('div');
+                fila.className = 'fila-tabla';
+                fila.innerHTML = `<span class="label-t">${DIVISOR} x ${f} =</span>`;
+                const res = RESULTADOS_TABLA[f].toString();
+                const cuad = crearCuadriculaInputsTabla(res, f);
+                fila.appendChild(cuad);
+                cont.appendChild(fila);
+            });
+        }
+
+        function crearCuadriculaInputsTabla(valorCorrecto, factor) {
+            const cont = document.createElement('div');
+            cont.className = 'cuadricula';
+            valorCorrecto.split('').forEach((cifra) => {
+                const celda = document.createElement('div');
+                celda.className = 'celda';
+                const input = document.createElement('input');
+                input.maxLength = 1;
+                input.dataset.correct = cifra;
+                input.dataset.factor = factor;
+                
+                input.addEventListener('input', (e) => {
+                    if(e.target.value === e.target.dataset.correct) {
+                        celda.classList.add('correct');
+                        irAlSiguienteTabla(e.target);
+                    } else {
+                        celda.classList.remove('correct');
+                    }
+                });
+                celda.appendChild(input);
+                cont.appendChild(celda);
+            });
+            return cont;
+        }
+
+        function irAlSiguienteTabla(actual) {
+            const todos = Array.from(document.querySelectorAll('#tabla-inputs input'));
+            const index = todos.indexOf(actual);
+            const factorActual = parseInt(actual.dataset.factor);
+
+            if (factorActual === 2 && esFilaCompleta(2)) {
+                enfocarFila(10);
+            } else if (factorActual === 10 && esFilaCompleta(10)) {
+                enfocarFila(5);
+            } else {
+                if (index < todos.length - 1) todos[index + 1].focus();
+            }
+        }
+
+        function esFilaCompleta(f) {
+            const fila = Array.from(document.querySelectorAll(`#tabla-inputs input[data-factor="${f}"]`));
+            return fila.every(i => i.value === i.dataset.correct);
+        }
+
+        function enfocarFila(f) {
+            const primero = document.querySelector(`#tabla-inputs input[data-factor="${f}"]`);
+            if (primero) primero.focus();
+        }
+
+        function validarTabla() {
+            const todos = document.querySelectorAll('#tabla-inputs input');
+            const totalCorrectos = Array.from(todos).filter(i => i.value === i.dataset.correct).length;
+            if(totalCorrectos === todos.length) {
+                document.getElementById('btn-tabla').disabled = true;
+                document.getElementById('btn-tabla').style.opacity = "0.5";
+                
+                prepararSiguientePaso(1);
+            } else {
+                alert("Revisa la tabla. Recuerda que el x5 es la mitad del x10.");
+            }
+        }
+
+        // --- LÓGICA DE LA DIVISIÓN ---
+        function dibujarCeldasFijas(idCont, numero, celdasCount) {
+            const cont = document.getElementById(idCont);
+            const numStr = numero.toString().padStart(celdasCount, ' ');
+            numStr.split('').forEach(c => {
+                const celda = document.createElement('div');
+                celda.className = 'celda fija';
+                celda.innerText = c === ' ' ? '' : c;
+                cont.appendChild(celda);
+            });
+        }
+
+        function prepararSiguientePaso(n) {
+            if (dividendoActual < DIVISOR) {
+                mostrarSumaFinal();
+                return;
+            }
+
+            if (n > 1) {
+                const areaRestas = document.getElementById('area-restas');
+                const divPaso = document.createElement('div');
+                divPaso.id = `paso-${n}`;
+                divPaso.innerHTML = `
+                    <div class="fila-con-signo">
+                        <span class="signo-resta">-</span>
+                        <div class="cuadricula" id="resta-${n}"></div>
+                    </div>
+                    <div style="border-top: 2px solid #333; margin: 5px 0 22px 0; width: 100%;"></div>
+                    <div class="cuadricula" id="resultado-${n}"></div>
+                `;
+                areaRestas.appendChild(divPaso);
+            } else {
+                document.getElementById('paso-1').classList.remove('oculto');
+            }
+
+            document.getElementById(`resta-${n}`).appendChild(crearCuadriculaDinamica(maxCifrasDividendo, 'resta', n));
+            
+            const areaCocientes = document.getElementById('cocientes-lista');
+            const divFilaCociente = document.createElement('div');
+            divFilaCociente.className = 'cuadricula';
+            if (n > 1) divFilaCociente.innerHTML = `<span style="align-self:center; font-weight:bold; margin-right:5px;">+</span>`;
+            divFilaCociente.appendChild(crearCuadriculaDinamica(maxCifrasCociente, 'cociente', n));
+            areaCocientes.appendChild(divFilaCociente);
+
+            document.getElementById(`resultado-${n}`).appendChild(crearCuadriculaDinamica(maxCifrasDividendo, 'resultado', n));
+        }
+
+        function crearCuadriculaDinamica(numCeldas, tipo, numeroPaso) {
+            const cont = document.createElement('div');
+            cont.className = 'cuadricula';
+            
+            for(let i=0; i<numCeldas; i++) {
+                const celda = document.createElement('div');
+                celda.className = 'celda';
+                const input = document.createElement('input');
+                input.maxLength = 1;
+                input.dataset.paso = numeroPaso;
+                input.dataset.tipo = tipo;
+                input.dataset.idx = i;
+                
+                input.addEventListener('input', (e) => {
+                    const val = e.target.value;
+                    if(val === '') {
+                        celda.classList.remove('correct', 'error', 'added-zero');
+                        let op = checkValidity(numeroPaso);
+                        if(op) marcarPaso(numeroPaso, op);
+                        else ocultarLlevadas(numeroPaso); 
+                        return;
+                    }
+                    
+                    let op = checkValidity(numeroPaso);
+                    if(op) {
+                        marcarPaso(numeroPaso, op);
+                        focusNextEmpty(numeroPaso, e.target);
+                        verificarPasoCompleto(numeroPaso);
+                    } else {
+                        celda.classList.remove('correct', 'added-zero');
+                        celda.classList.add('error');
+                        ocultarLlevadas(numeroPaso);
+                    }
+                });
+                celda.appendChild(input);
+                cont.appendChild(celda);
+            }
+            return cont;
+        }
+
+        function getValidOperations(dividendo) {
+            let validOps = [];
+            let maxQ = Math.floor(dividendo / DIVISOR);
+            for(let q=1; q<=maxQ; q++) {
+                let r = q * DIVISOR;
+                let res = dividendo - r;
+                validOps.push({
+                    qVal: q,
+                    qStr: q.toString().padStart(maxCifrasCociente, '0'),
+                    rStr: r.toString().padStart(maxCifrasDividendo, '0'),
+                    resStr: res.toString().padStart(maxCifrasDividendo, '0')
+                });
+            }
+            return validOps;
+        }
+
+        function checkValidity(n) {
+            const inputs = Array.from(document.querySelectorAll(`input[data-paso="${n}"]`));
+            if(inputs.length === 0) return null;
+            
+            let qArr = new Array(maxCifrasCociente).fill(null);
+            let rArr = new Array(maxCifrasDividendo).fill(null);
+            let resArr = new Array(maxCifrasDividendo).fill(null);
+
+            inputs.forEach(inp => {
+                if (inp.value !== '') {
+                    const idx = parseInt(inp.dataset.idx);
+                    if (inp.dataset.tipo === 'cociente') qArr[idx] = inp.value;
+                    if (inp.dataset.tipo === 'resta') rArr[idx] = inp.value;
+                    if (inp.dataset.tipo === 'resultado') resArr[idx] = inp.value;
+                }
+            });
+
+            const validOps = getValidOperations(dividendoActual);
+
+            for(let op of validOps) {
+                if (matchesPattern(op.qStr, qArr) && 
+                    matchesPattern(op.rStr, rArr) && 
+                    matchesPattern(op.resStr, resArr)) {
+                    return op;
+                }
+            }
+            return null;
+        }
+
+        function matchesPattern(str, arr) {
+            for(let i=0; i<arr.length; i++) {
+                if (arr[i] !== null && arr[i] !== str[i]) return false;
+            }
+            return true;
+        }
+
+        function marcarPaso(n, op) {
+            const inputs = document.querySelectorAll(`input[data-paso="${n}"]`);
+            
+            let e = 0;
+            if (op) {
+                let q = op.qVal;
+                if (q === 1 || q === 2 || q === 5 || q === 10) {
+                    e = 0;
+                } else {
+                    let match = q.toString().match(/0+$/);
+                    if (match) {
+                        e = match[0].length;
+                    }
+                }
+            }
+
+            const restaInputs = Array.from(document.querySelectorAll(`input[data-paso="${n}"][data-tipo="resta"]`));
+            const restaCompletada = restaInputs.length > 0 && restaInputs.every((inp, i) => op && inp.value === op.rStr[i]);
+            
+            if (restaCompletada) {
+                let minuendStr = dividendoActual.toString().padStart(maxCifrasDividendo, '0');
+                mostrarLlevadas(n, minuendStr, op.rStr);
+            } else {
+                ocultarLlevadas(n);
+            }
+
+            inputs.forEach(inp => {
+                if(inp.value !== '') {
+                    let celda = inp.parentElement;
+                    celda.classList.remove('error', 'correct', 'added-zero');
+                    
+                    if (op) {
+                        let tipo = inp.dataset.tipo;
+                        let idx = parseInt(inp.dataset.idx);
+                        let isAddedZero = false;
+
+                        if (tipo === 'resta') {
+                            if (idx >= maxCifrasDividendo - e) isAddedZero = true;
+                        } else if (tipo === 'cociente') {
+                            if (idx >= maxCifrasCociente - e) isAddedZero = true;
+                        }
+
+                        if (isAddedZero) {
+                            celda.classList.add('added-zero');
+                        } else {
+                            celda.classList.add('correct');
+                        }
+                    }
+                }
+            });
+        }
+
+        function mostrarLlevadas(n, minuendStr, subtrahendStr) {
+            let m = minuendStr.split('').map(Number);
+            let s = subtrahendStr.split('').map(Number);
+            let borrows = new Array(m.length).fill('');
+
+            for (let i = m.length - 1; i >= 0; i--) {
+                if (m[i] < s[i]) {
+                    for (let j = i - 1; j >= 0; j--) {
+                        if (m[j] > 0) {
+                            m[j]--;
+                            borrows[j] = m[j].toString();
+                            for (let k = j + 1; k < i; k++) {
+                                m[k] = 9;
+                                borrows[k] = "9";
+                            }
+                            m[i] += 10;
+                            borrows[i] = m[i].toString();
+                            break;
+                        }
+                    }
+                }
+            }
+
+            let celdasMinuendo = document.querySelectorAll(n === 1 ? '#fila-dividendo .celda' : `#resultado-${n - 1} .celda`);
+
+            celdasMinuendo.forEach((celda, idx) => {
+                const exist = celda.querySelector('.llevada');
+                if (exist) exist.remove();
+                celda.classList.remove('tachado');
+
+                if (borrows[idx] !== '') {
+                    celda.classList.add('tachado'); 
+                    const spanLlevada = document.createElement('span');
+                    spanLlevada.className = 'llevada';
+                    spanLlevada.innerText = borrows[idx];
+                    celda.appendChild(spanLlevada);
+                }
+            });
+        }
+
+        function ocultarLlevadas(n) {
+            let celdasMinuendo = document.querySelectorAll(n === 1 ? '#fila-dividendo .celda' : `#resultado-${n - 1} .celda`);
+            if(!celdasMinuendo) return;
+            celdasMinuendo.forEach(c => {
+                const ll = c.querySelector('.llevada');
+                if (ll) ll.remove();
+                c.classList.remove('tachado');
+            });
+        }
+
+        function focusNextEmpty(n, current) {
+            const tipo = current.dataset.tipo;
+            const inputs = Array.from(document.querySelectorAll(`input[data-paso="${n}"][data-tipo="${tipo}"]`));
+            const currentIndex = inputs.indexOf(current);
+            
+            if (tipo === 'resultado') {
+                for(let i = currentIndex - 1; i >= 0; i--) {
+                    if(inputs[i].value === '') { inputs[i].focus(); return; }
+                }
+                for(let i = inputs.length - 1; i > currentIndex; i--) {
+                    if(inputs[i].value === '') { inputs[i].focus(); return; }
+                }
+            } else {
+                for(let i = currentIndex + 1; i < inputs.length; i++) {
+                    if(inputs[i].value === '') { inputs[i].focus(); return; }
+                }
+                for(let i = 0; i < currentIndex; i++) {
+                    if(inputs[i].value === '') { inputs[i].focus(); return; }
+                }
+            }
+        }
+
+        function verificarPasoCompleto(n) {
+            const inputsPaso = Array.from(document.querySelectorAll(`input[data-paso="${n}"]`));
+            const todosLlenos = inputsPaso.every(i => i.value !== '');
+            
+            if (todosLlenos && checkValidity(n)) {
+                const resInputs = inputsPaso.filter(i => i.dataset.tipo === 'resultado');
+                const nuevoDividendo = parseInt(resInputs.map(i => i.value).join(''), 10);
+                
+                inputsPaso.forEach(i => {
+                    i.dataset.paso = "completado";
+                    i.disabled = true; 
+                });
+                
+                ocultarLlevadas(n); 
+
+                dividendoActual = nuevoDividendo;
+                prepararSiguientePaso(n + 1);
+            }
+        }
+
+        function mostrarSumaFinal() {
+            const areaCocientes = document.getElementById('cocientes-lista');
+            
+            const separador = document.createElement('div');
+            separador.style.borderTop = "3px solid #333";
+            separador.style.margin = "5px 0";
+            areaCocientes.appendChild(separador);
+
+            const filaFinal = document.createElement('div');
+            filaFinal.className = 'cuadricula';
+            
+            const cocienteFinal = Math.floor(DIVIDENDO / DIVISOR).toString().padStart(maxCifrasCociente, '0');
+            
+            cocienteFinal.split('').forEach((cifra) => {
+                const celda = document.createElement('div');
+                celda.className = 'celda';
+                const input = document.createElement('input');
+                input.maxLength = 1;
+                input.dataset.correct = cifra;
+                input.dataset.final = "si";
+                
+                input.addEventListener('input', (e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                        celda.classList.remove('correct', 'error');
+                        return;
+                    }
+
+                    if(val === e.target.dataset.correct) {
+                        celda.classList.remove('error');
+                        celda.classList.add('correct');
+                        focusNextDiv(e.target);
+                        
+                        const todos = Array.from(document.querySelectorAll('input[data-final="si"]'));
+                        if(todos.every(i => i.value === i.dataset.correct)) {
+                            setTimeout(() => {
+                                alert("¡ENHORABUENA! Has terminado la división con éxito. 🎉 ¡Vamos a por otra!");
+                                iniciarJuego();
+                            }, 500);
+                        }
+                    } else {
+                        celda.classList.remove('correct');
+                        celda.classList.add('error');
+                    }
+                });
+                celda.appendChild(input);
+                filaFinal.appendChild(celda);
+            });
+            
+            areaCocientes.appendChild(filaFinal);
+        }
+
+        function focusNextDiv(current) {
+            const inputs = Array.from(document.querySelectorAll('input[data-final="si"]'));
+            const index = inputs.indexOf(current);
+            if(index > 0) inputs[index-1].focus();
+        }
+
+        window.onload = iniciarJuego;
+    </script>
+</body>
+</html>
