@@ -7,12 +7,14 @@
         :root { --azul: #3498db; --verde: #27ae60; --gris: #dcdcdc; --rojo: #e74c3c; }
         body { font-family: 'Arial', sans-serif; background: #f0f2f5; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         
-        /* NUEVO: Contenedor global para poner las imágenes a los lados sin romper la caja central */
-        .layout-global { display: flex; align-items: center; justify-content: center; gap: 30px; width: 100%; max-width: 1200px; }
-        .img-cientifico { width: 150px; height: auto; object-fit: contain; }
+        /* Contenedor global ampliado para dejar espacio a las imágenes más grandes */
+        .layout-global { display: flex; align-items: center; justify-content: center; gap: 40px; width: 100%; max-width: 1500px; }
         
-        /* Si la pantalla es pequeña, ocultamos los científicos para no aplastar la división */
-        @media (max-width: 950px) {
+        /* Imágenes al doble de tamaño (300px en lugar de 150px) */
+        .img-cientifico { width: 300px; height: auto; object-fit: contain; }
+        
+        /* Ocultamos las imágenes antes (1300px) para evitar cualquier solapamiento en portátiles */
+        @media (max-width: 1300px) {
             .img-cientifico { display: none; }
         }
 
