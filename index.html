@@ -3,10 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <title>División Interactiva Paso a Paso</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         :root { --azul: #3498db; --verde: #27ae60; --gris: #dcdcdc; --rojo: #e74c3c; }
         body { font-family: 'Arial', sans-serif; background: #f0f2f5; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         
+        /* --- NUEVO: Estilos Pantalla de Inicio --- */
+        #pantalla-inicio { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; gap: 20px; text-align: center; }
+        .btn-nivel { padding: 15px 30px; font-size: 1.2rem; background: var(--azul); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: background 0.3s; }
+        .btn-nivel:hover { background: #2980b9; }
+        .juego-oculto { display: none !important; }
+        /* --------------------------------------- */
+
         /* Contenedor global ampliado para dejar espacio a las imágenes más grandes */
         .layout-global { display: flex; align-items: center; justify-content: center; gap: 40px; width: 100%; max-width: 1500px; }
         
@@ -59,9 +67,16 @@
 </head>
 <body>
 
-    <h1>Juego de División: Método de las Restas</h1>
+    <div id="pantalla-inicio">
+        <h1 style="color: var(--azul);">Bienvenido al Juego de División</h1>
+        <h2>¿Qué divisiones quieres practicar?</h2>
+        <button class="btn-nivel" onclick="seleccionarNivel(2)">Divisiones de 2 cifras</button>
+        <button class="btn-nivel" onclick="seleccionarNivel(3)">Divisiones de 3 cifras</button>
+    </div>
 
-    <div class="layout-global">
+    <h1 id="titulo-juego" class="juego-oculto">Juego de División: Método de las Restas</h1>
+
+    <div id="contenedor-juego" class="layout-global juego-oculto">
         
         <img src="einstein.png" alt="Albert Einstein" class="img-cientifico">
 
@@ -98,10 +113,24 @@
     <script>
         let DIVIDENDO, DIVISOR, RESULTADOS_TABLA;
         let dividendoActual, maxCifrasDividendo, maxCifrasCociente;
+        let cifrasNivelActual = 2; 
+
+        function seleccionarNivel(cifras) {
+            cifrasNivelActual = cifras;
+            document.getElementById('pantalla-inicio').style.display = 'none';
+            document.getElementById('titulo-juego').classList.remove('juego-oculto');
+            document.getElementById('contenedor-juego').classList.remove('juego-oculto');
+            iniciarJuego();
+        }
 
         function iniciarJuego() {
             DIVIDENDO = Math.floor(Math.random() * (99999 - 1000 + 1)) + 1000;
-            DIVISOR = Math.floor(Math.random() * (99 - 10 + 1)) + 10;
+            
+            if (cifrasNivelActual === 2) {
+                DIVISOR = Math.floor(Math.random() * (99 - 10 + 1)) + 10;
+            } else {
+                DIVISOR = Math.floor(Math.random() * (999 - 100 + 1)) + 100;
+            }
             
             RESULTADOS_TABLA = { 1: DIVISOR*1, 2: DIVISOR*2, 5: DIVISOR*5, 10: DIVISOR*10 };
             
@@ -527,10 +556,37 @@
                         
                         const todos = Array.from(document.querySelectorAll('input[data-final="si"]'));
                         if(todos.every(i => i.value === i.dataset.correct)) {
+                            
+                            // NUEVO: Efecto de confeti durante 5 segundos
+                            var duration = 5 * 1000;
+                            var end = Date.now() + duration;
+
+                            (function frame() {
+                                confetti({
+                                    particleCount: 5,
+                                    angle: 60,
+                                    spread: 55,
+                                    origin: { x: 0 },
+                                    colors: ['#3498db', '#27ae60', '#e74c3c']
+                                });
+                                confetti({
+                                    particleCount: 5,
+                                    angle: 120,
+                                    spread: 55,
+                                    origin: { x: 1 },
+                                    colors: ['#3498db', '#27ae60', '#e74c3c']
+                                });
+
+                                if (Date.now() < end) {
+                                    requestAnimationFrame(frame);
+                                }
+                            }());
+
+                            // Retrasar el mensaje 5 segundos hasta que acabe el confeti
                             setTimeout(() => {
                                 alert("¡ENHORABUENA! Has terminado la división con éxito. 🎉 ¡Vamos a por otra!");
-                                iniciarJuego();
-                            }, 500);
+                                iniciarJuego(); // Continúa automáticamente en el nivel seleccionado
+                            }, 5000);
                         }
                     } else {
                         celda.classList.remove('correct');
@@ -549,8 +605,6 @@
             const index = inputs.indexOf(current);
             if(index > 0) inputs[index-1].focus();
         }
-
-        window.onload = iniciarJuego;
     </script>
 </body>
 </html>
