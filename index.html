@@ -8,12 +8,11 @@
         :root { --azul: #3498db; --verde: #27ae60; --gris: #dcdcdc; --rojo: #e74c3c; }
         body { font-family: 'Arial', sans-serif; background: #f0f2f5; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         
-        /* --- NUEVO: Estilos Pantalla de Inicio --- */
+        /* Estilos Pantalla de Inicio */
         #pantalla-inicio { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; gap: 20px; text-align: center; }
-        .btn-nivel { padding: 15px 30px; font-size: 1.2rem; background: var(--azul); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: background 0.3s; }
+        .btn-nivel { padding: 15px 30px; font-size: 1.2rem; background: var(--azul); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: background 0.3s; margin: 5px; }
         .btn-nivel:hover { background: #2980b9; }
         .juego-oculto { display: none !important; }
-        /* --------------------------------------- */
 
         /* Contenedor global ampliado para dejar espacio a las imágenes más grandes */
         .layout-global { display: flex; align-items: center; justify-content: center; gap: 40px; width: 100%; max-width: 1500px; }
@@ -47,6 +46,11 @@
         /* Columna Izquierda: Tabla */
         .seccion-tabla { width: 280px; border-right: 2px solid #f0f0f0; padding-right: 20px; }
         .fila-tabla { display: flex; align-items: center; margin-bottom: 8px; font-size: 0.9rem; }
+        
+        /* --- NUEVO: Alineación a la derecha y ajuste de márgenes en la tabla --- */
+        .fila-tabla .cuadricula { flex: 1; margin-bottom: 0; }
+        /* ----------------------------------------------------------------------- */
+
         .label-t { width: 90px; font-weight: bold; }
         .btn-activar { margin-top: 15px; padding: 10px; background: var(--verde); color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; transition: opacity 0.3s; }
 
@@ -70,8 +74,11 @@
     <div id="pantalla-inicio">
         <h1 style="color: var(--azul);">Bienvenido al Juego de División</h1>
         <h2>¿Qué divisiones quieres practicar?</h2>
-        <button class="btn-nivel" onclick="seleccionarNivel(2)">Divisiones de 2 cifras</button>
-        <button class="btn-nivel" onclick="seleccionarNivel(3)">Divisiones de 3 cifras</button>
+        <div>
+            <button class="btn-nivel" onclick="seleccionarNivel(1)">Divisiones de 1 cifra</button>
+            <button class="btn-nivel" onclick="seleccionarNivel(2)">Divisiones de 2 cifras</button>
+            <button class="btn-nivel" onclick="seleccionarNivel(3)">Divisiones de 3 cifras</button>
+        </div>
     </div>
 
     <h1 id="titulo-juego" class="juego-oculto">Juego de División: Método de las Restas</h1>
@@ -84,7 +91,7 @@
             <div class="seccion-tabla">
                 <h3>1. Tabla de ayuda</h3>
                 <div id="tabla-inputs"></div>
-                <p style="font-size: 0.8rem; color: #666;">Completa x1, x2, luego x10 y por último x5.</p>
+                <p id="instrucciones-tabla" style="font-size: 0.8rem; color: #666;"></p>
                 <button class="btn-activar" id="btn-tabla" onclick="validarTabla()">Comprobar Tabla</button>
             </div>
 
@@ -126,13 +133,24 @@
         function iniciarJuego() {
             DIVIDENDO = Math.floor(Math.random() * (99999 - 1000 + 1)) + 1000;
             
-            if (cifrasNivelActual === 2) {
+            let factores = [];
+            
+            if (cifrasNivelActual === 1) {
+                DIVISOR = Math.floor(Math.random() * (9 - 2 + 1)) + 2; 
+                factores = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+                document.getElementById('instrucciones-tabla').innerText = "Completa la tabla del 1 al 10.";
+            } else if (cifrasNivelActual === 2) {
                 DIVISOR = Math.floor(Math.random() * (99 - 10 + 1)) + 10;
+                factores = [1, 2, 5, 10];
+                document.getElementById('instrucciones-tabla').innerText = "Completa x1, x2, luego x10 y por último x5.";
             } else {
                 DIVISOR = Math.floor(Math.random() * (999 - 100 + 1)) + 100;
+                factores = [1, 2, 5, 10];
+                document.getElementById('instrucciones-tabla').innerText = "Completa x1, x2, luego x10 y por último x5.";
             }
             
-            RESULTADOS_TABLA = { 1: DIVISOR*1, 2: DIVISOR*2, 5: DIVISOR*5, 10: DIVISOR*10 };
+            RESULTADOS_TABLA = {};
+            factores.forEach(f => RESULTADOS_TABLA[f] = DIVISOR * f);
             
             dividendoActual = DIVIDENDO;
             maxCifrasDividendo = DIVIDENDO.toString().length;
@@ -162,10 +180,11 @@
             dibujarCeldasFijas('fila-divisor', DIVISOR, DIVISOR.toString().length);
         }
 
-        // --- LÓGICA DE LA TABLA ---
         function dibujarTabla() {
             const cont = document.getElementById('tabla-inputs');
-            [1, 2, 5, 10].forEach(f => {
+            let factores = cifrasNivelActual === 1 ? [1,2,3,4,5,6,7,8,9,10] : [1,2,5,10];
+            
+            factores.forEach(f => {
                 const fila = document.createElement('div');
                 fila.className = 'fila-tabla';
                 fila.innerHTML = `<span class="label-t">${DIVISOR} x ${f} =</span>`;
@@ -206,12 +225,20 @@
             const index = todos.indexOf(actual);
             const factorActual = parseInt(actual.dataset.factor);
 
-            if (factorActual === 2 && esFilaCompleta(2)) {
-                enfocarFila(10);
-            } else if (factorActual === 10 && esFilaCompleta(10)) {
-                enfocarFila(5);
+            if (cifrasNivelActual > 1) {
+                if (factorActual === 2 && esFilaCompleta(2)) {
+                    enfocarFila(10);
+                } else if (factorActual === 10 && esFilaCompleta(10)) {
+                    enfocarFila(5);
+                } else {
+                    if (index < todos.length - 1) todos[index + 1].focus();
+                }
             } else {
-                if (index < todos.length - 1) todos[index + 1].focus();
+                if (esFilaCompleta(factorActual) && factorActual < 10) {
+                    enfocarFila(factorActual + 1);
+                } else {
+                    if (index < todos.length - 1) todos[index + 1].focus();
+                }
             }
         }
 
@@ -234,11 +261,14 @@
                 
                 prepararSiguientePaso(1);
             } else {
-                alert("Revisa la tabla. Recuerda que el x5 es la mitad del x10.");
+                if (cifrasNivelActual === 1) {
+                    alert("Revisa la tabla. Comprueba bien tus multiplicaciones.");
+                } else {
+                    alert("Revisa la tabla. Recuerda que el x5 es la mitad del x10.");
+                }
             }
         }
 
-        // --- LÓGICA DE LA DIVISIÓN ---
         function dibujarCeldasFijas(idCont, numero, celdasCount) {
             const cont = document.getElementById(idCont);
             const numStr = numero.toString().padStart(celdasCount, ' ');
@@ -383,7 +413,9 @@
             let e = 0;
             if (op) {
                 let q = op.qVal;
-                if (q === 1 || q === 2 || q === 5 || q === 10) {
+                let baseFactors = cifrasNivelActual === 1 ? [1,2,3,4,5,6,7,8,9,10] : [1,2,5,10];
+                
+                if (baseFactors.includes(q)) {
                     e = 0;
                 } else {
                     let match = q.toString().match(/0+$/);
@@ -557,7 +589,6 @@
                         const todos = Array.from(document.querySelectorAll('input[data-final="si"]'));
                         if(todos.every(i => i.value === i.dataset.correct)) {
                             
-                            // NUEVO: Efecto de confeti durante 5 segundos
                             var duration = 5 * 1000;
                             var end = Date.now() + duration;
 
@@ -582,10 +613,9 @@
                                 }
                             }());
 
-                            // Retrasar el mensaje 5 segundos hasta que acabe el confeti
                             setTimeout(() => {
                                 alert("¡ENHORABUENA! Has terminado la división con éxito. 🎉 ¡Vamos a por otra!");
-                                iniciarJuego(); // Continúa automáticamente en el nivel seleccionado
+                                iniciarJuego(); 
                             }, 5000);
                         }
                     } else {
